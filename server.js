@@ -1,4 +1,4 @@
-// server.js - Express.js Backend API
+// server.js - Express.js Backend API for Railway Deployment
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -15,10 +15,22 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(helmet());
+
+// Updated CORS configuration for Railway
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true
+    origin: [
+        'http://localhost:3000',
+        'http://localhost:3001', 
+        process.env.FRONTEND_URL,
+        /https:\/\/.*\.railway\.app$/,
+        /https:\/\/.*\.vercel\.app$/,
+        /https:\/\/.*\.netlify\.app$/
+    ].filter(Boolean),
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -112,7 +124,7 @@ function initializeDatabase() {
     });
 }
 
-// Email configuration - FIXED: Changed createTransporter to createTransport
+// Email configuration - Fixed for Railway
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: process.env.SMTP_PORT,
@@ -136,7 +148,27 @@ const consultationValidation = [
 
 // Health check
 app.get('/health', (req, res) => {
-    res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+    res.json({ 
+        status: 'healthy', 
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        port: PORT
+    });
+});
+
+// Root route
+app.get('/', (req, res) => {
+    res.json({ 
+        message: 'ConnectPair API is running!',
+        status: 'healthy',
+        endpoints: {
+            health: '/health',
+            consultation: '/api/consultation',
+            newsletter: '/api/newsletter',
+            numbers: '/api/numbers/search',
+            admin: '/api/admin/consultations'
+        }
+    });
 });
 
 // Submit consultation form
@@ -536,8 +568,9 @@ process.on('SIGINT', () => {
 
 // Start server
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🚀 ConnectPair API Server running on port ${PORT}`);
+    console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌐 Health check: http://localhost:${PORT}/health`);
 });
 
 module.exports = app;
